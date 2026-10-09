@@ -10,6 +10,7 @@ import * as topojson from 'topojson-client';
 import { geoConicEqualArea, geoPath } from 'd3-geo';
 import { Delaunay } from 'd3-delaunay';
 import * as turf from '@turf/turf';
+import { PNG } from 'pngjs';
 import { PROVINCE_LONLAT } from './provinceCoords.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -48,6 +49,23 @@ const path = geoPath(projection);
 function project([lon, lat]) {
   const p = projection([lon, lat]);
   return p ?? [0, 0];
+}
+
+function unproject([x, y]) {
+  return projection.invert ? (projection.invert([x, y]) ?? [0, 0]) : [0, 0];
+}
+
+// Real elevation data (public-domain NASA/NOAA-derived relief, via the `three-globe`
+// package's bundled example texture - copied once into scripts/data/, not an npm
+// dependency we keep installed) rather than the previous curated mountain/forest list.
+// A 2048x1024 equirectangular grayscale image: 0 = sea level or below, rising with
+// brightness toward the highest peaks on Earth.
+const topoPng = PNG.sync.read(readFileSync(join(__dirname, 'data/earth-topology.png')));
+function elevationGray(lon, lat) {
+  const px = Math.floor(((lon + 180) / 360) * topoPng.width) % topoPng.width;
+  const py = Math.max(0, Math.min(topoPng.height - 1, Math.floor(((90 - lat) / 180) * topoPng.height)));
+  const idx = (topoPng.width * py + ((px + topoPng.width) % topoPng.width)) << 2;
+  return topoPng.data[idx];
 }
 
 // Reproject the simplified world landmass into our pixel space, clipped to the bbox.
@@ -118,7 +136,64 @@ const SEA_IDS = new Set([
   'nao', 'nwg', 'bar', 'nth', 'eng', 'iri', 'mao', 'wes', 'lyo', 'tys', 'ion', 'adr', 'aeg', 'eas', 'bla', 'bal', 'bot', 'ska', 'hel',
 ]);
 
+// Raw Voronoi cell edges (the straight lines between province seed points, as opposed to
+// coastline-derived segments) are long, perfectly straight lines - the source of the
+// "blocky" look even after the coastline itself got more detailed. Give them the same
+// gently wavy, hand-drawn-map character as a real coastline via fractal midpoint
+// displacement, applied identically from both sides of a shared border (keyed off the
+// edge's own endpoints, not which province or winding direction is processing it) so
+// adjacent provinces' borders still mate exactly with no gaps or overlaps.
+const DISPLACE_DEPTH = 5;
+const DISPLACE_ROUGHNESS = 0.16;
+const DISPLACE_MIN_SEGMENT = 5; // px - below this, treat as already-detailed coastline
+
+function hash01(x, y) {
+  const h = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+  return h - Math.floor(h);
+}
+
+// The displaced midpoint of segment (a,b), independent of call order - always computed
+// from the same canonically-sorted endpoint pair so both neighboring provinces agree.
+function canonicalMidpoint(a, b, roughness) {
+  const swap = a[0] > b[0] || (a[0] === b[0] && a[1] > b[1]);
+  const p0 = swap ? b : a;
+  const p1 = swap ? a : b;
+  const dx = p1[0] - p0[0], dy = p1[1] - p0[1];
+  const len = Math.hypot(dx, dy);
+  const mx = (p0[0] + p1[0]) / 2, my = (p0[1] + p1[1]) / 2;
+  if (len < 1e-9) return [mx, my];
+  const nx = -dy / len, ny = dx / len; // unit perpendicular, derived from the canonical direction
+  const r = hash01(p0[0] * 0.137 + p1[0] * 0.071, p0[1] * 0.091 + p1[1] * 0.233) * 2 - 1;
+  const mag = len * roughness * r;
+  return [mx + nx * mag, my + ny * mag];
+}
+
+function midpointDisplace(p0, p1, depth, roughness, out) {
+  const len = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
+  if (depth <= 0 || len < DISPLACE_MIN_SEGMENT) {
+    out.push(p1);
+    return;
+  }
+  const mid = canonicalMidpoint(p0, p1, roughness);
+  midpointDisplace(p0, mid, depth - 1, roughness * 0.55, out);
+  midpointDisplace(mid, p1, depth - 1, roughness * 0.55, out);
+}
+
+function organicizeRing(ring) {
+  if (ring.length < 3) return ring;
+  const out = [ring[0]];
+  for (let i = 0; i < ring.length; i++) {
+    midpointDisplace(ring[i], ring[(i + 1) % ring.length], DISPLACE_DEPTH, DISPLACE_ROUGHNESS, out);
+  }
+  out.pop(); // last pushed point duplicates out[0] (the ring closes back to its start)
+  return out;
+}
+
 const provinces = {};
+const rawElevations = {}; // id -> { seed: gray, verts: gray[] }, normalized after the loop
+let grayMin = Infinity;
+let grayMax = -Infinity;
+
 for (let i = 0; i < ids.length; i++) {
   const id = ids[i];
   const cellPts = voronoi.cellPolygon(i);
@@ -155,7 +230,38 @@ for (let i = 0; i < ids.length; i++) {
   // Approximate on-screen "size" of this province, used client-side to fade in its label
   // only once zoomed in enough that it has room (small provinces stay hidden until then).
   const radius = Math.sqrt(ringArea(biggest) / Math.PI);
-  provinces[id] = { x: points[i][0], y: points[i][1], polygon: biggest.slice(0, -1), radius };
+  const polygon = organicizeRing(biggest.slice(0, -1));
+  provinces[id] = { x: points[i][0], y: points[i][1], polygon, radius };
+
+  // Real elevation, sampled per vertex (not just once per province), so the terrain mesh
+  // can actually undulate across a province instead of sitting at one flat block height.
+  if (!SEA_IDS.has(id)) {
+    const [seedLon, seedLat] = PROVINCE_LONLAT[id];
+    const seedGray = elevationGray(seedLon, seedLat);
+    const vertGrays = polygon.map(([x, y]) => {
+      const [lon, lat] = unproject([x, y]);
+      return elevationGray(lon, lat);
+    });
+    rawElevations[id] = { seed: seedGray, verts: vertGrays };
+    grayMin = Math.min(grayMin, seedGray, ...vertGrays);
+    grayMax = Math.max(grayMax, seedGray, ...vertGrays);
+  }
+}
+
+// Stretch this region's actual (modest, compared to Everest/the Mariana Trench) relief
+// range across a visually meaningful world-unit height band, rather than using the raw
+// global 0-255 scale under which all of Europe would barely register.
+const ELEV_BASE = 0.3;
+const ELEV_RANGE = 2.3;
+function toWorldHeight(gray) {
+  if (grayMax <= grayMin) return ELEV_BASE;
+  const t = Math.max(0, Math.min(1, (gray - grayMin) / (grayMax - grayMin)));
+  return ELEV_BASE + t * ELEV_RANGE;
+}
+for (const id of Object.keys(rawElevations)) {
+  const { seed, verts } = rawElevations[id];
+  provinces[id].elevation = toWorldHeight(seed);
+  provinces[id].vertexElevations = verts.map(toWorldHeight);
 }
 
 function clipRingToCanvas(ring) {

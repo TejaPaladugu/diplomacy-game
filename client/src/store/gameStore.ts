@@ -16,6 +16,10 @@ export interface DraftOrder {
 export type ViewMode = 'top-down' | 'orthographic' | 'perspective';
 export type TerrainMode = 'flat' | 'relief';
 export type PendingAction = 'move' | 'support' | 'convoy' | null;
+/** 'ownership' colors supply centers by their owner (plus a lighter tint for provinces a
+ * power's unit merely occupies); 'territory' flood-fills whole contiguous regions from
+ * each power's supply centers for a painted-conquest-map look. */
+export type TerritoryColorMode = 'ownership' | 'territory';
 
 interface GameStoreState {
   provinces: Province[];
@@ -31,6 +35,8 @@ interface GameStoreState {
   supportTargetProvince: string | null;
   viewMode: ViewMode;
   terrainMode: TerrainMode;
+  territoryColorMode: TerritoryColorMode;
+  highlightMineOnly: boolean;
   activePanel: 'orders' | 'rules' | 'stats' | 'rewind' | 'hypothetical' | null;
   hypotheticalDrafts: Record<string, DraftOrder>;
 
@@ -45,6 +51,8 @@ interface GameStoreState {
   clearAllDrafts: () => void;
   setViewMode: (v: ViewMode) => void;
   setTerrainMode: (t: TerrainMode) => void;
+  setTerritoryColorMode: (m: TerritoryColorMode) => void;
+  setHighlightMineOnly: (v: boolean) => void;
   setActivePanel: (p: GameStoreState['activePanel']) => void;
   myUnits: () => Unit[];
 }
@@ -63,6 +71,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   supportTargetProvince: null,
   viewMode: 'top-down',
   terrainMode: 'relief',
+  territoryColorMode: 'ownership',
+  highlightMineOnly: false,
   activePanel: 'orders',
   hypotheticalDrafts: {},
 
@@ -166,5 +176,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
   setViewMode: (v) => set({ viewMode: v }),
   setTerrainMode: (t) => set({ terrainMode: t }),
+  setTerritoryColorMode: (m) => set({ territoryColorMode: m }),
+  setHighlightMineOnly: (v) => set({ highlightMineOnly: v }),
   setActivePanel: (p) => set({ activePanel: p }),
 }));

@@ -8,11 +8,13 @@ export function toWorld(x: number, y: number): [number, number] {
   return [(x - MAP_CENTER_X) * SCALE, (y - MAP_CENTER_Y) * SCALE];
 }
 
-// Hand-picked for visual variety ("within reason" topography), approximating where the
-// real Alps/Carpathians/Caucasus/Scandinavian mountains actually fall among these
-// provinces - not a literal elevation model, but not arbitrary either.
-const MOUNTAINOUS = new Set(['tyr', 'boh', 'arm', 'alb', 'gal', 'ser', 'nwy', 'pie', 'wal']);
-const FORESTED = new Set(['ruh', 'bur', 'ukr', 'lvn', 'fin', 'sil', 'war']);
+type GeometryData = { provinces: Record<string, { elevation?: number; vertexElevations?: number[] }> };
+const geo = geometry as unknown as GeometryData;
+
+// Real elevation data (see scripts/generateMapGeometry.mjs) is stretched into roughly this
+// world-unit range; used as a fallback when a province is somehow missing elevation data.
+const ELEV_BASE = 0.3;
+const ELEV_RANGE = 2.3;
 
 export function hashUnit(id: string): number {
   let h = 0;
@@ -21,19 +23,28 @@ export function hashUnit(id: string): number {
 }
 
 /** terrainMode 'flat' gives the authentic parchment-map look (minimal relief); 'relief'
- * exaggerates height for a readable 3D terrain view. Both toggleable from the UI. */
+ * uses real elevation data for an actually varied 3D terrain view. Both toggleable from
+ * the UI. Returns a single scalar (the province's elevation at its seed point) for
+ * placing units/markers/labels; the terrain mesh itself uses per-vertex elevation for a
+ * properly undulating surface (see ProvinceMesh.tsx). */
 export function provinceHeight(id: string, type: 'land' | 'sea', terrainMode: 'flat' | 'relief' = 'relief'): number {
   if (type === 'sea') return 0.12;
   if (terrainMode === 'flat') return 0.3 + hashUnit(id) * 0.04;
-  const jitter = hashUnit(id) * 0.35;
-  if (MOUNTAINOUS.has(id)) return 1.9 + jitter;
-  if (FORESTED.has(id)) return 1.15 + jitter * 0.6;
-  return 0.85 + jitter * 0.5;
+  return geo.provinces[id]?.elevation ?? ELEV_BASE + hashUnit(id) * ELEV_RANGE;
 }
 
-export function provinceTint(id: string, type: 'land' | 'sea'): number {
-  if (type === 'sea') return 0;
-  if (MOUNTAINOUS.has(id)) return 1;
-  if (FORESTED.has(id)) return 2;
-  return 3;
+export function provinceVertexHeights(id: string, terrainMode: 'flat' | 'relief', vertexCount: number): number[] | undefined {
+  if (terrainMode === 'flat') return undefined; // flat mode: caller uses a single uniform height
+  const v = geo.provinces[id]?.vertexElevations;
+  return v && v.length === vertexCount ? v : undefined;
+}
+
+// Higher ground reads as slightly darker/rockier - a continuous gradient driven by the
+// same real elevation data as the height itself, rather than a fixed category.
+export function provinceTintFactor(id: string, type: 'land' | 'sea'): number {
+  if (type === 'sea') return 1;
+  const h = geo.provinces[id]?.elevation;
+  if (h === undefined) return 1;
+  const t = Math.max(0, Math.min(1, (h - ELEV_BASE) / ELEV_RANGE));
+  return 1 - t * 0.22;
 }

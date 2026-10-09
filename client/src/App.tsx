@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { MapScene, type SceneArrow } from './components/MapScene';
 import { OrdersPanel } from './components/OrdersPanel';
 import { RetreatPanel } from './components/RetreatPanel';
@@ -32,6 +32,10 @@ function GameView({ gameId, onExit }: { gameId: string; onExit: () => void }) {
     setViewMode,
     terrainMode,
     setTerrainMode,
+    territoryColorMode,
+    setTerritoryColorMode,
+    highlightMineOnly,
+    setHighlightMineOnly,
     activePanel,
     setActivePanel,
   } = useGameStore();
@@ -94,43 +98,69 @@ function GameView({ gameId, onExit }: { gameId: string; onExit: () => void }) {
 
   if (!game) return <div className="loading">Loading game…</div>;
 
+  const accentStyle = myPower ? ({ '--accent': POWER_COLORS[myPower] } as CSSProperties) : undefined;
+
   return (
-    <div className="game-view">
+    <div className="game-view" style={accentStyle}>
       <header className="top-bar">
-        <button className="link" onClick={onExit}>
-          ← Lobby
-        </button>
-        <div className="turn-indicator">
-          <strong>{game.name}</strong> — {game.season} {game.year} · {game.phase}
-          {game.status === 'completed' && <span className="winner-badge"> · {game.winner} WINS</span>}
+        <div className="top-bar-row">
+          <button className="link" onClick={onExit}>
+            ← Lobby
+          </button>
+          <div className="turn-indicator">
+            <strong>{game.name}</strong> — {game.season} {game.year} · {game.phase}
+            {game.status === 'completed' && <span className="winner-badge"> · {game.winner} WINS</span>}
+          </div>
+          <div className="power-picker">
+            <label>
+              {myPower && <span className="power-swatch" style={{ background: POWER_COLORS[myPower] }} />}
+              Play as:
+              <select value={myPower ?? ''} onChange={(e) => setMyPower((e.target.value || null) as Power | null)}>
+                <option value="">(spectate)</option>
+                {POWERS.map((p) => (
+                  <option key={p} value={p}>
+                    {p} {players.find((pl) => pl.power === p)?.isAI ? '(AI)' : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
         </div>
-        <div className="power-picker">
-          <label>
-            {myPower && <span className="power-swatch" style={{ background: POWER_COLORS[myPower] }} />}
-            Play as:
-            <select value={myPower ?? ''} onChange={(e) => setMyPower((e.target.value || null) as Power | null)}>
-              <option value="">(spectate)</option>
-              {POWERS.map((p) => (
-                <option key={p} value={p}>
-                  {p} {players.find((pl) => pl.power === p)?.isAI ? '(AI)' : ''}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <div className="view-mode-buttons">
-          {(['top-down', 'orthographic', 'perspective'] as const).map((v) => (
-            <button key={v} className={viewMode === v ? 'active' : ''} onClick={() => setViewMode(v)}>
-              {v}
+        <div className="top-bar-row map-controls-row">
+          <div className="view-mode-buttons">
+            {(['top-down', 'orthographic', 'perspective'] as const).map((v) => (
+              <button key={v} className={viewMode === v ? 'active' : ''} onClick={() => setViewMode(v)}>
+                {v}
+              </button>
+            ))}
+          </div>
+          <div className="terrain-mode-buttons">
+            {(['flat', 'relief'] as const).map((t) => (
+              <button key={t} className={terrainMode === t ? 'active' : ''} onClick={() => setTerrainMode(t)} title="Toggle flat parchment map vs relief terrain">
+                {t === 'flat' ? 'Map' : 'Terrain'}
+              </button>
+            ))}
+          </div>
+          <div className="terrain-mode-buttons">
+            {(['ownership', 'territory'] as const).map((m) => (
+              <button
+                key={m}
+                className={territoryColorMode === m ? 'active' : ''}
+                onClick={() => setTerritoryColorMode(m)}
+                title="Supply-center ownership vs full contiguous-territory coloring"
+              >
+                {m === 'ownership' ? 'Ownership' : 'Territory'}
+              </button>
+            ))}
+            <button
+              className={highlightMineOnly ? 'active' : ''}
+              onClick={() => setHighlightMineOnly(!highlightMineOnly)}
+              disabled={!myPower}
+              title={myPower ? 'Darken the map and highlight only what you control' : 'Pick a power to use this'}
+            >
+              Highlight mine
             </button>
-          ))}
-        </div>
-        <div className="terrain-mode-buttons">
-          {(['flat', 'relief'] as const).map((t) => (
-            <button key={t} className={terrainMode === t ? 'active' : ''} onClick={() => setTerrainMode(t)} title="Toggle flat parchment map vs relief terrain">
-              {t === 'flat' ? 'Map' : 'Terrain'}
-            </button>
-          ))}
+          </div>
         </div>
       </header>
 

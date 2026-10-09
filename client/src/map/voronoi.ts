@@ -8,13 +8,22 @@ export interface MapCell {
   province: Province;
   polygon: [number, number][];
   centroid: [number, number];
+  /** Real elevation (world units) at the province's seed point - a single scalar used to
+   * place units/markers/labels on the surface. */
+  elevation?: number;
+  /** Real elevation per polygon vertex (same length/order as `polygon`), used to give the
+   * terrain mesh an actually undulating top surface instead of one flat block height. */
+  vertexElevations?: number[];
 }
 
 type GeometryData = {
   width: number;
   height: number;
   worldLand: [number, number][][];
-  provinces: Record<string, { x: number; y: number; polygon: [number, number][]; radius: number }>;
+  provinces: Record<
+    string,
+    { x: number; y: number; polygon: [number, number][]; radius: number; elevation?: number; vertexElevations?: number[] }
+  >;
 };
 
 const geo = geometry as unknown as GeometryData;
@@ -32,7 +41,7 @@ export function buildMapCells(provinces: Province[]): MapCell[] {
   return provinces.map((province) => {
     const g = geo.provinces[province.id];
     if (!g) return { province, polygon: [], centroid: [province.x, province.y] };
-    return { province, polygon: g.polygon, centroid: [g.x, g.y] };
+    return { province, polygon: g.polygon, centroid: [g.x, g.y], elevation: g.elevation, vertexElevations: g.vertexElevations };
   });
 }
 

@@ -11,7 +11,8 @@ import { CameraRig } from './CameraRig';
 import { useGameStore } from '../store/gameStore';
 import { provinceHeight, toWorld, SCALE } from '../map/terrain';
 import { geoXY, geoRadius } from '../map/voronoi';
-import type { Unit } from '../types/domain';
+import { computeFloodFillOwners } from '../map/territory';
+import type { Power, Unit } from '../types/domain';
 import type { AnimatedUnitFrame } from '../hooks/useTurnPlayback';
 
 export interface SceneArrow {
@@ -31,9 +32,33 @@ interface Props {
 }
 
 export function MapScene({ displayUnits, animatedUnits, arrows = [], interactive = true }: Props) {
-  const { cells, game, byId, viewMode, terrainMode, selectedUnit, myPower, draftOrders, handleProvinceClick, selectUnit } = useGameStore();
+  const {
+    cells,
+    game,
+    byId,
+    viewMode,
+    terrainMode,
+    territoryColorMode,
+    highlightMineOnly,
+    selectedUnit,
+    myPower,
+    draftOrders,
+    handleProvinceClick,
+    selectUnit,
+  } = useGameStore();
 
   const units = displayUnits ?? game?.units ?? [];
+
+  const floodFillOwners = useMemo(() => {
+    if (territoryColorMode !== 'territory' || !game) return {};
+    return computeFloodFillOwners(cells.map((c) => c.province), game.supplyCenters);
+  }, [territoryColorMode, game, cells]);
+
+  const occupantByProvince = useMemo(() => {
+    const map: Record<string, Power> = {};
+    for (const u of units) if (!map[u.province]) map[u.province] = u.power;
+    return map;
+  }, [units]);
 
   const draftArrows: SceneArrow[] = useMemo(() => {
     const out: SceneArrow[] = [];
@@ -65,16 +90,24 @@ export function MapScene({ displayUnits, animatedUnits, arrows = [], interactive
 
       <WorldBackdrop />
 
-      {cells.map((cell) => (
-        <ProvinceMesh
-          key={cell.province.id}
-          cell={cell}
-          owner={game?.supplyCenters[cell.province.id]}
-          selected={selectedUnit === cell.province.id}
-          terrainMode={terrainMode}
-          onClick={handleClick}
-        />
-      ))}
+      {cells.map((cell) => {
+        const scOwner = game?.supplyCenters[cell.province.id];
+        const owner = territoryColorMode === 'territory' ? floodFillOwners[cell.province.id] : scOwner;
+        const occupantTint = territoryColorMode === 'ownership' ? occupantByProvince[cell.province.id] : undefined;
+        const isMine = !!myPower && (owner === myPower || occupantTint === myPower);
+        return (
+          <ProvinceMesh
+            key={cell.province.id}
+            cell={cell}
+            owner={owner}
+            occupantTint={occupantTint}
+            dimmed={highlightMineOnly && !!myPower && !isMine}
+            selected={selectedUnit === cell.province.id}
+            terrainMode={terrainMode}
+            onClick={handleClick}
+          />
+        );
+      })}
 
       {cells
         .filter((c) => c.province.supplyCenter)
