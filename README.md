@@ -56,10 +56,23 @@ interaction checks for the frontend):
 
 ## Running it
 
+**macOS:** double-click `Start Diplomacy.command` in Finder. First run installs
+everything (takes a minute); after that it just starts the game and opens
+your browser. Close the Terminal window it opens to stop the game.
+
+**From a terminal** (any OS), one-time setup:
 ```
-cd server && npm install && npm run dev   # http://localhost:4000
-cd client && npm install && npm run dev   # http://localhost:5173
+npm run install:all
 ```
+Then, every time you want to play:
+```
+npm run dev
+```
+This starts both the backend (`http://localhost:4000`) and frontend
+(`http://localhost:5173`) together in one terminal, labeled `[server]`/
+`[client]`. Ctrl+C stops both. (The old two-terminal approach — `cd server
+&& npm run dev` and separately `cd client && npm run dev` — still works too,
+if you prefer to see each one's output separately.)
 
 Open the client URL, create a game from the lobby (pick which powers are
 human vs AI, solo or multiplayer, an optional turn deadline), then pick
