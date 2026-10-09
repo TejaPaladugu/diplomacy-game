@@ -10,9 +10,14 @@ export function Lobby({ onEnter }: { onEnter: (gameId: string) => void }) {
   const [humanPowers, setHumanPowers] = useState<Set<Power>>(new Set(['AUSTRIA']));
   const [deadlineMinutes, setDeadlineMinutes] = useState<number | ''>('');
   const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.listGames().then(setGames);
+    api
+      .listGames()
+      .then(setGames)
+      .catch((e) => setLoadError((e as Error).message));
   }, []);
 
   function toggleHuman(p: Power) {
@@ -26,12 +31,15 @@ export function Lobby({ onEnter }: { onEnter: (gameId: string) => void }) {
 
   async function create() {
     setCreating(true);
+    setError(null);
     try {
       const players = Object.fromEntries(
         POWERS.map((p) => [p, { name: humanPowers.has(p) ? p : `${p} (AI)`, isAI: mode === 'solo' ? !humanPowers.has(p) : !humanPowers.has(p) }]),
       );
       const game = await api.createGame({ name, mode, players, deadlineMinutes: deadlineMinutes === '' ? undefined : deadlineMinutes });
       onEnter(game.id);
+    } catch (e) {
+      setError((e as Error).message);
     } finally {
       setCreating(false);
     }
@@ -73,6 +81,7 @@ export function Lobby({ onEnter }: { onEnter: (gameId: string) => void }) {
               </label>
             ))}
           </div>
+          {error && <p className="error">{error}</p>}
           <button className="primary" disabled={creating} onClick={create}>
             {creating ? 'Creating…' : 'Create game'}
           </button>
@@ -80,7 +89,12 @@ export function Lobby({ onEnter }: { onEnter: (gameId: string) => void }) {
 
         <div className="lobby-list panel-box">
           <h2>Existing games</h2>
-          {games.length === 0 && <p className="muted">No games yet.</p>}
+          {loadError && (
+            <p className="error">
+              Can't reach the backend ({loadError}). Is the server running on port 4000?
+            </p>
+          )}
+          {!loadError && games.length === 0 && <p className="muted">No games yet.</p>}
           <ul>
             {games.map((g) => (
               <li key={g.id}>
