@@ -4,14 +4,14 @@ import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import type { ViewMode } from '../store/gameStore';
 
 // Explicit world-unit frustum, independent of CSS pixel size (drei's default frustum is
-// sized in raw canvas pixels, which has nothing to do with our ~110x75 world-unit map).
-const VIEW_HALF_WIDTH = 72;
-const VIEW_HALF_HEIGHT = 48;
+// sized in raw canvas pixels, which has nothing to do with our ~78x58 world-unit map).
+const VIEW_HALF_WIDTH = 56;
+const VIEW_HALF_HEIGHT = 42;
 
 const VIEW_SETTINGS: Record<ViewMode, { position: [number, number, number]; minPolar: number; maxPolar: number }> = {
-  'top-down': { position: [0, 90, 0.01], minPolar: 0, maxPolar: 0.15 },
-  orthographic: { position: [70, 70, 70], minPolar: 0.4, maxPolar: 1.15 },
-  perspective: { position: [0, 45, 65], minPolar: 0.15, maxPolar: 1.45 },
+  'top-down': { position: [0, 70, 0.01], minPolar: 0, maxPolar: 0.15 },
+  orthographic: { position: [55, 55, 55], minPolar: 0.4, maxPolar: 1.15 },
+  perspective: { position: [0, 35, 50], minPolar: 0.15, maxPolar: 1.45 },
 };
 
 export function CameraRig({ viewMode }: { viewMode: ViewMode }) {
@@ -42,8 +42,8 @@ export function CameraRig({ viewMode }: { viewMode: ViewMode }) {
         target={[0, 0, 0]}
         minPolarAngle={settings.minPolar}
         maxPolarAngle={settings.maxPolar}
-        minDistance={15}
-        maxDistance={160}
+        minDistance={10}
+        maxDistance={125}
         minZoom={0.4}
         maxZoom={4}
         enableDamping

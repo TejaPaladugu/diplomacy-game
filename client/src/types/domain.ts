@@ -98,12 +98,14 @@ export interface TurnHistoryEntry {
 
 export type StatsSeries = Record<Power, Array<{ turnIndex: number; season: Season; year: number; supplyCenters: number; units: number }>>;
 
+// Matched to the classic hand-drawn Diplomacy map palette (parchment, muted sage seas,
+// each power a distinct dusty tone) rather than bright UI colors.
 export const POWER_COLORS: Record<Power, string> = {
-  AUSTRIA: '#d94f4f',
-  ENGLAND: '#3a6ea5',
-  FRANCE: '#5aa0d8',
-  GERMANY: '#4a4a4a',
-  ITALY: '#4a9c5d',
-  RUSSIA: '#b8b8b8',
-  TURKEY: '#d9b74a',
+  AUSTRIA: '#cf8c6c',
+  ENGLAND: '#8a97a8',
+  FRANCE: '#a7cac1',
+  GERMANY: '#a89881',
+  ITALY: '#9ca55c',
+  RUSSIA: '#e8e1cc',
+  TURKEY: '#ddb15c',
 };

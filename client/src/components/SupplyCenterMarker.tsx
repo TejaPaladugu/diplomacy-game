@@ -6,7 +6,7 @@ export function SupplyCenterMarker({ position, owner }: { position: [number, num
   const color = owner ? POWER_COLORS[owner] : '#f2e6c9';
   return (
     <mesh position={position} rotation={[-Math.PI / 2, 0, 0]}>
-      <ringGeometry args={[0.45, 0.75, 5]} />
+      <ringGeometry args={[0.3, 0.5, 5]} />
       <meshStandardMaterial color={color} emissive={new THREE.Color(color)} emissiveIntensity={0.25} side={THREE.DoubleSide} />
     </mesh>
   );

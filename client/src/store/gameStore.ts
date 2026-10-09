@@ -14,6 +14,7 @@ export interface DraftOrder {
 }
 
 export type ViewMode = 'top-down' | 'orthographic' | 'perspective';
+export type TerrainMode = 'flat' | 'relief';
 export type PendingAction = 'move' | 'support' | 'convoy' | null;
 
 interface GameStoreState {
@@ -29,6 +30,7 @@ interface GameStoreState {
   supportStage: 'pick-target' | 'pick-destination' | null;
   supportTargetProvince: string | null;
   viewMode: ViewMode;
+  terrainMode: TerrainMode;
   activePanel: 'orders' | 'rules' | 'stats' | 'rewind' | 'hypothetical' | null;
   hypotheticalDrafts: Record<string, DraftOrder>;
 
@@ -42,6 +44,7 @@ interface GameStoreState {
   clearDraftFor: (province: string) => void;
   clearAllDrafts: () => void;
   setViewMode: (v: ViewMode) => void;
+  setTerrainMode: (t: TerrainMode) => void;
   setActivePanel: (p: GameStoreState['activePanel']) => void;
   myUnits: () => Unit[];
 }
@@ -59,6 +62,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   supportStage: null,
   supportTargetProvince: null,
   viewMode: 'top-down',
+  terrainMode: 'relief',
   activePanel: 'orders',
   hypotheticalDrafts: {},
 
@@ -161,5 +165,6 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   clearAllDrafts: () => set({ draftOrders: {} }),
 
   setViewMode: (v) => set({ viewMode: v }),
+  setTerrainMode: (t) => set({ terrainMode: t }),
   setActivePanel: (p) => set({ activePanel: p }),
 }));

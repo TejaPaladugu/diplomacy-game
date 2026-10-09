@@ -1,8 +1,8 @@
-import { Delaunay } from 'd3-delaunay';
+import geometry from './geometry.json';
 import type { Province } from '../types/domain';
 
-export const MAP_WIDTH = 1000;
-export const MAP_HEIGHT = 620;
+export const MAP_WIDTH = geometry.width;
+export const MAP_HEIGHT = geometry.height;
 
 export interface MapCell {
   province: Province;
@@ -10,22 +10,37 @@ export interface MapCell {
   centroid: [number, number];
 }
 
+type GeometryData = {
+  width: number;
+  height: number;
+  worldLand: [number, number][][];
+  provinces: Record<string, { x: number; y: number; polygon: [number, number][] }>;
+};
+
+const geo = geometry as unknown as GeometryData;
+
+export const WORLD_LAND_RINGS: [number, number][][] = geo.worldLand;
+
 /**
- * Builds a Voronoi tessellation from each province's representative coordinate,
- * producing a full set of adjacent polygons that functions as a stylized political
- * map without requiring hand-authored province boundary data. Cells are clipped to
- * the map bounds (with a small margin so edge provinces don't get oddly truncated).
+ * Builds map cells using pre-computed, real-coastline-clipped province shapes
+ * (generated at build time by scripts/generateMapGeometry.mjs from public-domain
+ * Natural Earth data) rather than raw Voronoi polygons, so the map reads as an
+ * actual map of Europe instead of abstract cells. Falls back to the province's own
+ * x/y (and an empty polygon) if geometry data is missing for some id.
  */
 export function buildMapCells(provinces: Province[]): MapCell[] {
-  const points: [number, number][] = provinces.map((p) => [p.x, p.y]);
-  const delaunay = Delaunay.from(points);
-  const voronoi = delaunay.voronoi([-60, -60, MAP_WIDTH + 60, MAP_HEIGHT + 60]);
-
-  return provinces.map((province, i) => {
-    const cellPoints = voronoi.cellPolygon(i);
-    const polygon: [number, number][] = cellPoints ? (cellPoints as [number, number][]) : [];
-    return { province, polygon, centroid: [province.x, province.y] };
+  return provinces.map((province) => {
+    const g = geo.provinces[province.id];
+    if (!g) return { province, polygon: [], centroid: [province.x, province.y] };
+    return { province, polygon: g.polygon, centroid: [g.x, g.y] };
   });
+}
+
+/** Real-geography x/y for a province id (falls back to the server-provided
+ * coordinate if this id is missing from the generated geometry for some reason). */
+export function geoXY(id: string, fallback: [number, number]): [number, number] {
+  const g = geo.provinces[id];
+  return g ? [g.x, g.y] : fallback;
 }
 
 export function polygonToPath(polygon: [number, number][]): string {

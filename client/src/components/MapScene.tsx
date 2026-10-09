@@ -1,13 +1,16 @@
 import { useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
+import * as THREE from 'three';
 import { ProvinceMesh } from './ProvinceMesh';
+import { WorldBackdrop } from './WorldBackdrop';
 import { UnitToken } from './UnitToken';
 import { SupplyCenterMarker } from './SupplyCenterMarker';
 import { OrderArrow } from './OrderArrow';
 import { CameraRig } from './CameraRig';
 import { useGameStore } from '../store/gameStore';
 import { provinceHeight, toWorld } from '../map/terrain';
+import { geoXY } from '../map/voronoi';
 import type { Unit } from '../types/domain';
 
 export interface SceneArrow {
@@ -24,7 +27,7 @@ interface Props {
 }
 
 export function MapScene({ displayUnits, arrows = [], interactive = true }: Props) {
-  const { cells, game, byId, viewMode, selectedUnit, myPower, draftOrders, handleProvinceClick, selectUnit } = useGameStore();
+  const { cells, game, byId, viewMode, terrainMode, selectedUnit, myPower, draftOrders, handleProvinceClick, selectUnit } = useGameStore();
 
   const units = displayUnits ?? game?.units ?? [];
 
@@ -49,11 +52,14 @@ export function MapScene({ displayUnits, arrows = [], interactive = true }: Prop
   }
 
   return (
-    <Canvas shadows dpr={[1, 2]} style={{ width: '100%', height: '100%', background: '#0b1622' }}>
+    <Canvas shadows dpr={[1, 2]} style={{ width: '100%', height: '100%', background: '#8fb3c7' }}>
       <CameraRig viewMode={viewMode} />
-      <ambientLight intensity={0.55} />
-      <directionalLight position={[30, 50, 20]} intensity={1.1} castShadow shadow-mapSize={[2048, 2048]} />
-      <hemisphereLight args={['#8fb4d9', '#2a2015', 0.4]} />
+      <ambientLight intensity={0.65} color="#fff6e0" />
+      <directionalLight position={[30, 50, 20]} intensity={1.05} color="#fff2d8" castShadow shadow-mapSize={[2048, 2048]} />
+      <hemisphereLight args={['#bcd4c4', '#4a3f2a', 0.45]} />
+      <fog attach="fog" args={[new THREE.Color('#9fc0b8').getHex(), 90, 230]} />
+
+      <WorldBackdrop />
 
       {cells.map((cell) => (
         <ProvinceMesh
@@ -61,7 +67,7 @@ export function MapScene({ displayUnits, arrows = [], interactive = true }: Prop
           cell={cell}
           owner={game?.supplyCenters[cell.province.id]}
           selected={selectedUnit === cell.province.id}
-          highlighted={false}
+          terrainMode={terrainMode}
           onClick={handleClick}
         />
       ))}
@@ -69,19 +75,33 @@ export function MapScene({ displayUnits, arrows = [], interactive = true }: Prop
       {cells
         .filter((c) => c.province.supplyCenter)
         .map((c) => {
-          const [x, z] = toWorld(c.province.x, c.province.y);
-          const h = provinceHeight(c.province.id, c.province.type);
+          const [gx, gy] = geoXY(c.province.id, [c.province.x, c.province.y]);
+          const [x, z] = toWorld(gx, gy);
+          const h = provinceHeight(c.province.id, c.province.type, terrainMode);
           return <SupplyCenterMarker key={c.province.id} position={[x, h + 0.01, z]} owner={game?.supplyCenters[c.province.id]} />;
         })}
 
       {cells
         .filter((c) => c.province.type === 'land')
         .map((c) => {
-          const [x, z] = toWorld(c.province.x, c.province.y);
-          const h = provinceHeight(c.province.id, c.province.type);
+          const [gx, gy] = geoXY(c.province.id, [c.province.x, c.province.y]);
+          const [x, z] = toWorld(gx, gy);
+          const h = provinceHeight(c.province.id, c.province.type, terrainMode);
           return (
             <Html key={`label-${c.province.id}`} position={[x, h + 0.05, z]} center occlude={false} zIndexRange={[1, 0]} pointerEvents="none">
-              <div className="province-label">{c.province.id.toUpperCase()}</div>
+              <div className="province-label">{c.province.name}</div>
+            </Html>
+          );
+        })}
+
+      {cells
+        .filter((c) => c.province.type === 'sea')
+        .map((c) => {
+          const [gx, gy] = geoXY(c.province.id, [c.province.x, c.province.y]);
+          const [x, z] = toWorld(gx, gy);
+          return (
+            <Html key={`sea-label-${c.province.id}`} position={[x, 0.18, z]} center occlude={false} zIndexRange={[1, 0]} pointerEvents="none">
+              <div className="province-label sea-label">{c.province.name}</div>
             </Html>
           );
         })}
@@ -89,8 +109,9 @@ export function MapScene({ displayUnits, arrows = [], interactive = true }: Prop
       {units.map((u) => {
         const p = byId[u.province];
         if (!p) return null;
-        const [x, z] = toWorld(p.x, p.y);
-        const h = provinceHeight(p.id, p.type);
+        const [gx, gy] = geoXY(u.province, [p.x, p.y]);
+        const [x, z] = toWorld(gx, gy);
+        const h = provinceHeight(p.id, p.type, terrainMode);
         return (
           <UnitToken
             key={`${u.power}-${u.province}`}
@@ -108,8 +129,10 @@ export function MapScene({ displayUnits, arrows = [], interactive = true }: Prop
         const from = byId[a.from];
         const to = byId[a.to];
         if (!from || !to) return null;
-        const [fx, fz] = toWorld(from.x, from.y);
-        const [tx, tz] = toWorld(to.x, to.y);
+        const [fgx, fgy] = geoXY(a.from, [from.x, from.y]);
+        const [tgx, tgy] = geoXY(a.to, [to.x, to.y]);
+        const [fx, fz] = toWorld(fgx, fgy);
+        const [tx, tz] = toWorld(tgx, tgy);
         return <OrderArrow key={i} from={[fx, 0, fz]} to={[tx, 0, tz]} color={a.color} dashed={a.dashed} />;
       })}
     </Canvas>

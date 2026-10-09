@@ -9,15 +9,29 @@ import { RewindPanel } from './components/RewindPanel';
 import { Lobby } from './components/Lobby';
 import { useGameStore } from './store/gameStore';
 import { api, wsUrl } from './api/client';
-import { POWERS } from './types/domain';
+import { POWERS, POWER_COLORS } from './types/domain';
 import type { Power, Unit } from './types/domain';
 import './App.css';
 
 type Frame = { units: Unit[]; arrows: SceneArrow[]; label: string } | null;
 
 function GameView({ gameId, onExit }: { gameId: string; onExit: () => void }) {
-  const { provinces, setProvinces, game, setGame, players, setPlayers, myPower, setMyPower, viewMode, setViewMode, activePanel, setActivePanel } =
-    useGameStore();
+  const {
+    provinces,
+    setProvinces,
+    game,
+    setGame,
+    players,
+    setPlayers,
+    myPower,
+    setMyPower,
+    viewMode,
+    setViewMode,
+    terrainMode,
+    setTerrainMode,
+    activePanel,
+    setActivePanel,
+  } = useGameStore();
   const [frame, setFrame] = useState<Frame>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
@@ -59,6 +73,7 @@ function GameView({ gameId, onExit }: { gameId: string; onExit: () => void }) {
         </div>
         <div className="power-picker">
           <label>
+            {myPower && <span className="power-swatch" style={{ background: POWER_COLORS[myPower] }} />}
             Play as:
             <select value={myPower ?? ''} onChange={(e) => setMyPower((e.target.value || null) as Power | null)}>
               <option value="">(spectate)</option>
@@ -74,6 +89,13 @@ function GameView({ gameId, onExit }: { gameId: string; onExit: () => void }) {
           {(['top-down', 'orthographic', 'perspective'] as const).map((v) => (
             <button key={v} className={viewMode === v ? 'active' : ''} onClick={() => setViewMode(v)}>
               {v}
+            </button>
+          ))}
+        </div>
+        <div className="terrain-mode-buttons">
+          {(['flat', 'relief'] as const).map((t) => (
+            <button key={t} className={terrainMode === t ? 'active' : ''} onClick={() => setTerrainMode(t)} title="Toggle flat parchment map vs relief terrain">
+              {t === 'flat' ? 'Map' : 'Terrain'}
             </button>
           ))}
         </div>

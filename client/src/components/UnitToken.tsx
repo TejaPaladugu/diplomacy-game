@@ -102,7 +102,7 @@ export function UnitToken({ power, type, position, selected, dimmed, onClick }: 
     <group
       ref={groupRef}
       position={position}
-      scale={3.2}
+      scale={2.1}
       onPointerUp={(e) => {
         e.stopPropagation();
         onClick();
