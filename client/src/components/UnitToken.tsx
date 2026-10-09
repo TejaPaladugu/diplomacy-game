@@ -78,14 +78,16 @@ interface Props {
   type: UnitType;
   position: [number, number, number];
   selected: boolean;
-  dimmed: boolean;
-  onClick: () => void;
+  dimmed?: boolean;
+  opacity?: number;
+  onClick?: () => void;
 }
 
-export function UnitToken({ power, type, position, selected, dimmed, onClick }: Props) {
+export function UnitToken({ power, type, position, selected, dimmed, opacity, onClick }: Props) {
   const color = POWER_COLORS[power];
   const ornament = POWER_ORNAMENT[power];
   const groupRef = useRef<THREE.Group>(null);
+  const effectiveOpacity = opacity ?? (dimmed ? 0.45 : 1);
 
   const bobPhase = useMemo(() => Math.random() * Math.PI * 2, []);
   useFrame(({ clock }) => {
@@ -96,7 +98,9 @@ export function UnitToken({ power, type, position, selected, dimmed, onClick }: 
     }
   });
 
-  const baseMaterial = <meshStandardMaterial color={color} roughness={0.55} metalness={0.15} opacity={dimmed ? 0.45 : 1} transparent={dimmed} />;
+  const baseMaterial = (
+    <meshStandardMaterial color={color} roughness={0.55} metalness={0.15} opacity={effectiveOpacity} transparent={effectiveOpacity < 1} />
+  );
 
   return (
     <group
@@ -105,7 +109,7 @@ export function UnitToken({ power, type, position, selected, dimmed, onClick }: 
       scale={2.1}
       onPointerUp={(e) => {
         e.stopPropagation();
-        onClick();
+        onClick?.();
       }}
     >
       {selected && (

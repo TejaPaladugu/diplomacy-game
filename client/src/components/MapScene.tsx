@@ -12,6 +12,7 @@ import { useGameStore } from '../store/gameStore';
 import { provinceHeight, toWorld } from '../map/terrain';
 import { geoXY } from '../map/voronoi';
 import type { Unit } from '../types/domain';
+import type { AnimatedUnitFrame } from '../hooks/useTurnPlayback';
 
 export interface SceneArrow {
   from: string;
@@ -22,11 +23,14 @@ export interface SceneArrow {
 
 interface Props {
   displayUnits?: Unit[];
+  /** When provided, overrides displayUnits entirely and positions units at continuous
+   * (x,y) coordinates rather than snapped to a province - used for turn animations. */
+  animatedUnits?: AnimatedUnitFrame[];
   arrows?: SceneArrow[];
   interactive?: boolean;
 }
 
-export function MapScene({ displayUnits, arrows = [], interactive = true }: Props) {
+export function MapScene({ displayUnits, animatedUnits, arrows = [], interactive = true }: Props) {
   const { cells, game, byId, viewMode, terrainMode, selectedUnit, myPower, draftOrders, handleProvinceClick, selectUnit } = useGameStore();
 
   const units = displayUnits ?? game?.units ?? [];
@@ -106,24 +110,38 @@ export function MapScene({ displayUnits, arrows = [], interactive = true }: Prop
           );
         })}
 
-      {units.map((u) => {
-        const p = byId[u.province];
-        if (!p) return null;
-        const [gx, gy] = geoXY(u.province, [p.x, p.y]);
-        const [x, z] = toWorld(gx, gy);
-        const h = provinceHeight(p.id, p.type, terrainMode);
-        return (
-          <UnitToken
-            key={`${u.power}-${u.province}`}
-            power={u.power}
-            type={u.type}
-            position={[x, h, z]}
-            selected={selectedUnit === u.province}
-            dimmed={!!myPower && u.power !== myPower && interactive}
-            onClick={() => handleClick(u.province)}
-          />
-        );
-      })}
+      {animatedUnits
+        ? animatedUnits.map((a) => {
+            const [x, z] = toWorld(a.x, a.y);
+            return (
+              <UnitToken
+                key={a.key}
+                power={a.power}
+                type={a.type}
+                position={[x, 1.1 + a.arc * 0.9, z]}
+                selected={false}
+                opacity={a.opacity}
+              />
+            );
+          })
+        : units.map((u) => {
+            const p = byId[u.province];
+            if (!p) return null;
+            const [gx, gy] = geoXY(u.province, [p.x, p.y]);
+            const [x, z] = toWorld(gx, gy);
+            const h = provinceHeight(p.id, p.type, terrainMode);
+            return (
+              <UnitToken
+                key={`${u.power}-${u.province}`}
+                power={u.power}
+                type={u.type}
+                position={[x, h, z]}
+                selected={selectedUnit === u.province}
+                dimmed={!!myPower && u.power !== myPower && interactive}
+                onClick={() => handleClick(u.province)}
+              />
+            );
+          })}
 
       {[...arrows, ...draftArrows].map((a, i) => {
         const from = byId[a.from];

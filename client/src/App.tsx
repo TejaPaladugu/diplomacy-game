@@ -10,10 +10,13 @@ import { Lobby } from './components/Lobby';
 import { useGameStore } from './store/gameStore';
 import { api, wsUrl } from './api/client';
 import { POWERS, POWER_COLORS } from './types/domain';
-import type { Power, Unit } from './types/domain';
+import type { Power, TurnHistoryEntry, Unit } from './types/domain';
+import { buildPlaybackUnits, sampleTurnPlayback, usePlaybackClock, type AnimatedUnitFrame } from './hooks/useTurnPlayback';
+import { arrowsForTurn } from './map/turnArrows';
 import './App.css';
 
-type Frame = { units: Unit[]; arrows: SceneArrow[]; label: string } | null;
+type Frame = { units?: Unit[]; animatedUnits?: AnimatedUnitFrame[]; arrows: SceneArrow[]; label: string } | null;
+const TURN_ANIMATION_MS = 2600;
 
 function GameView({ gameId, onExit }: { gameId: string; onExit: () => void }) {
   const {
@@ -33,7 +36,9 @@ function GameView({ gameId, onExit }: { gameId: string; onExit: () => void }) {
     setActivePanel,
   } = useGameStore();
   const [frame, setFrame] = useState<Frame>(null);
+  const [liveAnimTurn, setLiveAnimTurn] = useState<TurnHistoryEntry | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const prevTurnKey = useRef<string | null>(null);
 
   useEffect(() => {
     if (provinces.length === 0) api.getMap().then(setProvinces);
@@ -55,9 +60,37 @@ function GameView({ gameId, onExit }: { gameId: string; onExit: () => void }) {
     };
   }, [gameId, setGame, setPlayers]);
 
-  const onRewindFrame = useCallback((units: Unit[] | null, arrows: SceneArrow[]) => {
-    setFrame(units ? { units, arrows, label: '' } : null);
+  // When the live turn advances (a phase resolved while connected), play that turn's
+  // resolution automatically before settling into the new, interactive board.
+  useEffect(() => {
+    if (!game) return;
+    const key = `${game.season}-${game.year}-${game.phase}`;
+    const isFirstLoad = prevTurnKey.current === null;
+    prevTurnKey.current = key;
+    if (isFirstLoad || frame || activePanel === 'rewind') return;
+    api.getHistory(gameId).then((history) => {
+      const last = history[history.length - 1];
+      if (last) setLiveAnimTurn(last);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game?.season, game?.year, game?.phase]);
+
+  const playbackClockT = usePlaybackClock(!!liveAnimTurn, TURN_ANIMATION_MS);
+  useEffect(() => {
+    if (liveAnimTurn && playbackClockT >= 1) {
+      const t = setTimeout(() => setLiveAnimTurn(null), 350);
+      return () => clearTimeout(t);
+    }
+  }, [liveAnimTurn, playbackClockT]);
+
+  const onRewindFrame = useCallback((f: Frame) => {
+    setFrame(f);
   }, []);
+
+  const liveAnimFrame: Frame = liveAnimTurn
+    ? { animatedUnits: sampleTurnPlayback(buildPlaybackUnits(liveAnimTurn), playbackClockT), arrows: arrowsForTurn(liveAnimTurn), label: 'Resolving…' }
+    : null;
+  const activeFrame = liveAnimFrame ?? frame;
 
   if (!game) return <div className="loading">Loading game…</div>;
 
@@ -103,13 +136,20 @@ function GameView({ gameId, onExit }: { gameId: string; onExit: () => void }) {
 
       <div className="main-layout">
         <div className="map-container">
-          <MapScene displayUnits={frame?.units} arrows={frame?.arrows} interactive={!frame} />
-          {frame && (
+          <MapScene
+            displayUnits={activeFrame?.units}
+            animatedUnits={activeFrame?.animatedUnits}
+            arrows={activeFrame?.arrows}
+            interactive={!activeFrame}
+          />
+          {activeFrame && activeFrame.label && (
             <div className="frame-badge">
-              {frame.label}
-              <button className="link" onClick={() => setFrame(null)}>
-                clear
-              </button>
+              {activeFrame.label}
+              {!liveAnimTurn && (
+                <button className="link" onClick={() => setFrame(null)}>
+                  clear
+                </button>
+              )}
             </div>
           )}
         </div>
