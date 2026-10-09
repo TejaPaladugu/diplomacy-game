@@ -3,6 +3,9 @@ dist/
 build/
 *.sqlite
 *.sqlite3
+*.sqlite-shm
+*.sqlite-wal
+server/data/
 .env
 .DS_Store
 *.log
