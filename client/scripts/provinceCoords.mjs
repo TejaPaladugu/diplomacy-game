@@ -1,0 +1,92 @@
+// Real-world [longitude, latitude] for every province, used only at build time to
+// generate realistic map geometry. Sea zones use an approximate central point within
+// that body of water. Land provinces use their namesake city/region.
+export const PROVINCE_LONLAT = {
+  // England
+  edi: [-3.19, 55.95],
+  lvp: [-2.98, 53.41],
+  lon: [-0.13, 51.51],
+  wal: [-3.78, 52.33],
+  yor: [-1.08, 53.96],
+  cly: [-4.6, 56.1],
+  // France
+  bre: [-4.49, 48.39],
+  par: [2.35, 48.86],
+  pic: [2.3, 49.9],
+  bur: [5.04, 47.32],
+  gas: [-0.58, 44.84],
+  mar: [5.37, 43.3],
+  // Germany
+  kie: [10.14, 54.32],
+  ber: [13.4, 52.52],
+  mun: [11.58, 48.14],
+  ruh: [7.45, 51.51],
+  pru: [20.51, 54.71],
+  sil: [17.03, 51.11],
+  hol: [4.9, 52.37],
+  bel: [4.35, 50.85],
+  den: [12.57, 55.68],
+  // Italy
+  ven: [12.34, 45.44],
+  rom: [12.5, 41.9],
+  nap: [14.27, 40.85],
+  pie: [7.68, 45.07],
+  tus: [11.26, 43.77],
+  apu: [16.87, 41.12],
+  tyr: [11.4, 47.27],
+  // Austria-Hungary
+  vie: [16.37, 48.21],
+  bud: [19.04, 47.5],
+  tri: [13.78, 45.65],
+  boh: [14.42, 50.08],
+  gal: [19.94, 50.06],
+  // Russia
+  stp: [30.31, 59.93],
+  mos: [37.62, 55.75],
+  war: [21.01, 52.23],
+  sev: [33.53, 44.62],
+  lvn: [24.11, 56.95],
+  ukr: [30.52, 50.45],
+  fin: [24.94, 61.5],
+  // Scandinavia
+  nwy: [10.75, 60.4],
+  swe: [18.07, 59.33],
+  // Iberia
+  spa: [-3.7, 40.42],
+  por: [-9.14, 38.72],
+  // North Africa
+  naf: [-5.0, 34.5],
+  tun: [10.18, 36.81],
+  // Balkans
+  ser: [20.46, 44.0],
+  alb: [19.82, 41.33],
+  gre: [23.73, 38.5],
+  bul: [25.48, 42.7],
+  rum: [26.1, 44.43],
+  // Turkey
+  con: [28.98, 41.01],
+  ank: [32.86, 39.93],
+  smy: [27.14, 38.42],
+  arm: [41.27, 39.9],
+  syr: [37.16, 36.2],
+  // Sea zones (approximate centers)
+  nao: [-22, 57],
+  nwg: [2, 68],
+  bar: [38, 72.5],
+  nth: [3.5, 56],
+  eng: [-2.5, 50],
+  iri: [-6.5, 53.5],
+  mao: [-15, 41],
+  wes: [2, 39],
+  lyo: [5, 42],
+  tys: [11.5, 40],
+  ion: [18.5, 38.5],
+  adr: [16, 43],
+  aeg: [25, 39],
+  eas: [32, 34.3],
+  bla: [35, 43.7],
+  bal: [18, 57.5],
+  bot: [20, 62.5],
+  ska: [9.3, 57.5],
+  hel: [7.7, 54.4],
+};
