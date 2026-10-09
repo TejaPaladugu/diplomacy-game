@@ -319,48 +319,15 @@ button.link {
   flex: 1;
   display: flex;
   min-height: 0;
-  position: relative;
-  isolation: isolate;
 }
 
-/* A soft, out-of-focus room glow behind the board - not a literal 3D room, just enough
-   atmosphere (via a blurred pseudo-element, so the blur never touches the map itself)
-   that the board reads as an object sitting in a space rather than a flat fullscreen UI. */
-.main-layout::before {
-  content: '';
-  position: absolute;
-  inset: -80px;
-  z-index: 0;
-  background:
-    radial-gradient(ellipse 50% 40% at 22% 18%, rgba(196, 156, 100, 0.32), transparent 65%),
-    radial-gradient(ellipse 45% 55% at 78% 80%, rgba(100, 78, 54, 0.38), transparent 65%),
-    radial-gradient(ellipse 65% 65% at 50% 50%, rgba(46, 36, 24, 0.5), transparent 75%),
-    var(--leather);
-  filter: blur(38px);
-  pointer-events: none;
-}
-
+/* The tabletop/room atmosphere lives inside the Three.js scene itself (table mesh +
+   depth-of-field blurred backdrop - see MapScene.tsx), not here: a CSS blur/frame around
+   the chrome fought with UI legibility and didn't actually read as a 3D physical object. */
 .map-container {
   flex: 1;
   position: relative;
-  z-index: 1;
   min-width: 0;
-  margin: 18px;
-  border-radius: 10px;
-  padding: 14px;
-  /* A wood-table bezel the board sits inset into. */
-  background: radial-gradient(ellipse at 30% 15%, rgba(255, 214, 150, 0.1), transparent 55%), linear-gradient(135deg, #5c4326, #3a2a16 45%, #2b1e10 100%);
-  box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.5),
-    inset 0 2px 6px rgba(255, 220, 160, 0.15),
-    inset 0 -10px 24px rgba(0, 0, 0, 0.55),
-    0 18px 36px rgba(0, 0, 0, 0.55);
-}
-
-.map-container canvas {
-  display: block;
-  border-radius: 4px;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55), inset 0 0 0 2px rgba(0, 0, 0, 0.3);
 }
 
 .frame-badge {
@@ -382,8 +349,6 @@ button.link {
 .side-panel {
   width: 380px;
   flex-shrink: 0;
-  position: relative;
-  z-index: 1;
   background: var(--parchment);
   border-left: 3px solid var(--accent);
   display: flex;

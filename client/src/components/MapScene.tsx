@@ -1,8 +1,10 @@
 import { useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
+import { EffectComposer, DepthOfField } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import { ProvinceMesh } from './ProvinceMesh';
 import { WorldBackdrop } from './WorldBackdrop';
+import { TableAndRoom } from './TableAndRoom';
 import { UnitToken } from './UnitToken';
 import { SupplyCenterMarker } from './SupplyCenterMarker';
 import { OrderArrow } from './OrderArrow';
@@ -86,8 +88,9 @@ export function MapScene({ displayUnits, animatedUnits, arrows = [], interactive
       <ambientLight intensity={0.65} color="#fff6e0" />
       <directionalLight position={[30, 50, 20]} intensity={1.05} color="#fff2d8" castShadow shadow-mapSize={[2048, 2048]} />
       <hemisphereLight args={['#bcd4c4', '#4a3f2a', 0.45]} />
-      <fog attach="fog" args={[new THREE.Color('#9fc0b8').getHex(), 90, 230]} />
+      <fog attach="fog" args={[new THREE.Color('#9fc0b8').getHex(), 90, 260]} />
 
+      <TableAndRoom />
       <WorldBackdrop />
 
       {cells.map((cell) => {
@@ -193,6 +196,19 @@ export function MapScene({ displayUnits, animatedUnits, arrows = [], interactive
         const [tx, tz] = toWorld(tgx, tgy);
         return <OrderArrow key={i} from={[fx, 0, fz]} to={[tx, 0, tz]} color={a.color} dashed={a.dashed} />;
       })}
+
+      {/* Keeps the board itself sharp while the table/room beyond it fall gently out of
+          focus, like a shallow depth of field on a tabletop photo - the "room blurred in
+          the background" effect lives here, in the actual rendering, not as a CSS blur
+          layered over the UI. Perspective-only: a real orthographic lens has no depth of
+          field at all, and this effect's depth math doesn't suit an orthographic camera
+          (it blurred the whole board rather than just the background), so the top-down
+          and orthographic views stay sharp throughout - which is also more useful for them. */}
+      {viewMode === 'perspective' && (
+        <EffectComposer>
+          <DepthOfField target={[0, 0.6, 0]} focusRange={65} bokehScale={3} height={480} />
+        </EffectComposer>
+      )}
     </Canvas>
   );
 }
