@@ -106,6 +106,8 @@ export const POWER_COLORS: Record<Power, string> = {
   FRANCE: '#a7cac1',
   GERMANY: '#a89881',
   ITALY: '#9ca55c',
-  RUSSIA: '#e8e1cc',
+  // Was a pale cream, nearly indistinguishable from the parchment board itself - a deeper,
+  // cooler slate-plum reads clearly against the tan/khaki map at any zoom.
+  RUSSIA: '#6f6480',
   TURKEY: '#ddb15c',
 };

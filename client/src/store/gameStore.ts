@@ -37,6 +37,7 @@ interface GameStoreState {
   terrainMode: TerrainMode;
   territoryColorMode: TerritoryColorMode;
   highlightMineOnly: boolean;
+  shadowsEnabled: boolean;
   activePanel: 'orders' | 'rules' | 'stats' | 'rewind' | 'hypothetical' | null;
   hypotheticalDrafts: Record<string, DraftOrder>;
 
@@ -53,6 +54,7 @@ interface GameStoreState {
   setTerrainMode: (t: TerrainMode) => void;
   setTerritoryColorMode: (m: TerritoryColorMode) => void;
   setHighlightMineOnly: (v: boolean) => void;
+  setShadowsEnabled: (v: boolean) => void;
   setActivePanel: (p: GameStoreState['activePanel']) => void;
   myUnits: () => Unit[];
 }
@@ -73,6 +75,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   terrainMode: 'relief',
   territoryColorMode: 'ownership',
   highlightMineOnly: false,
+  shadowsEnabled: true,
   activePanel: 'orders',
   hypotheticalDrafts: {},
 
@@ -178,5 +181,6 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   setTerrainMode: (t) => set({ terrainMode: t }),
   setTerritoryColorMode: (m) => set({ territoryColorMode: m }),
   setHighlightMineOnly: (v) => set({ highlightMineOnly: v }),
+  setShadowsEnabled: (v) => set({ shadowsEnabled: v }),
   setActivePanel: (p) => set({ activePanel: p }),
 }));

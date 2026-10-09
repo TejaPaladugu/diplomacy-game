@@ -36,6 +36,8 @@ function GameView({ gameId, onExit }: { gameId: string; onExit: () => void }) {
     setTerritoryColorMode,
     highlightMineOnly,
     setHighlightMineOnly,
+    shadowsEnabled,
+    setShadowsEnabled,
     activePanel,
     setActivePanel,
   } = useGameStore();
@@ -159,6 +161,9 @@ function GameView({ gameId, onExit }: { gameId: string; onExit: () => void }) {
               title={myPower ? 'Darken the map and highlight only what you control' : 'Pick a power to use this'}
             >
               Highlight mine
+            </button>
+            <button className={shadowsEnabled ? 'active' : ''} onClick={() => setShadowsEnabled(!shadowsEnabled)} title="Toggle cast shadows">
+              Shadows
             </button>
           </div>
         </div>

@@ -42,6 +42,7 @@ export function MapScene({ displayUnits, animatedUnits, arrows = [], interactive
     terrainMode,
     territoryColorMode,
     highlightMineOnly,
+    shadowsEnabled,
     selectedUnit,
     myPower,
     draftOrders,
@@ -83,10 +84,16 @@ export function MapScene({ displayUnits, animatedUnits, arrows = [], interactive
   }
 
   return (
-    <Canvas shadows dpr={[1, 2]} style={{ width: '100%', height: '100%', background: '#8fb3c7' }}>
+    <Canvas shadows={shadowsEnabled} dpr={[1, 2]} style={{ width: '100%', height: '100%', background: '#8fb3c7' }}>
       <CameraRig viewMode={viewMode} />
-      <ambientLight intensity={0.65} color="#fff6e0" />
-      <directionalLight position={[30, 50, 20]} intensity={1.05} color="#fff2d8" castShadow shadow-mapSize={[2048, 2048]} />
+      <ambientLight intensity={shadowsEnabled ? 0.65 : 0.85} color="#fff6e0" />
+      <directionalLight
+        position={[30, 50, 20]}
+        intensity={1.05}
+        color="#fff2d8"
+        castShadow={shadowsEnabled}
+        shadow-mapSize={[2048, 2048]}
+      />
       <hemisphereLight args={['#bcd4c4', '#4a3f2a', 0.45]} />
       <fog attach="fog" args={[new THREE.Color('#9fc0b8').getHex(), 90, 260]} />
 
@@ -118,7 +125,16 @@ export function MapScene({ displayUnits, animatedUnits, arrows = [], interactive
           const [gx, gy] = geoXY(c.province.id, [c.province.x, c.province.y]);
           const [x, z] = toWorld(gx, gy);
           const h = provinceHeight(c.province.id, c.province.type, terrainMode);
-          return <SupplyCenterMarker key={c.province.id} position={[x, h + 0.01, z]} owner={game?.supplyCenters[c.province.id]} />;
+          // Offset from the province's exact center, which is also where a unit standing
+          // there is positioned - without this the marker sits directly under/behind the
+          // (much larger) unit model and all but disappears.
+          return (
+            <SupplyCenterMarker
+              key={c.province.id}
+              position={[x + 0.55, h + 0.01, z + 0.55]}
+              owner={game?.supplyCenters[c.province.id]}
+            />
+          );
         })}
 
       {cells
@@ -127,10 +143,14 @@ export function MapScene({ displayUnits, animatedUnits, arrows = [], interactive
           const [gx, gy] = geoXY(c.province.id, [c.province.x, c.province.y]);
           const [x, z] = toWorld(gx, gy);
           const h = provinceHeight(c.province.id, c.province.type, terrainMode);
+          // Rest above the province's actual highest point (not just its seed-point
+          // height), so the label clears real terrain variation and standing units
+          // instead of sinking into a ridge or getting buried behind a tall piece.
+          const peak = terrainMode === 'relief' && c.vertexElevations?.length ? Math.max(h, ...c.vertexElevations) : h;
           return (
             <ProvinceLabel
               key={`label-${c.province.id}`}
-              position={[x, h + 0.35, z]}
+              position={[x, peak + 0.75, z]}
               text={c.province.name}
               radius={geoRadius(c.province.id) * SCALE}
             />
@@ -205,8 +225,8 @@ export function MapScene({ displayUnits, animatedUnits, arrows = [], interactive
           (it blurred the whole board rather than just the background), so the top-down
           and orthographic views stay sharp throughout - which is also more useful for them. */}
       {viewMode === 'perspective' && (
-        <EffectComposer>
-          <DepthOfField target={[0, 0.6, 0]} focusRange={65} bokehScale={3} height={480} />
+        <EffectComposer multisampling={0}>
+          <DepthOfField target={[0, 0.6, 0]} focusRange={65} bokehScale={2} resolutionScale={0.35} />
         </EffectComposer>
       )}
     </Canvas>
