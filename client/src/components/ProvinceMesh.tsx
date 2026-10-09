@@ -89,7 +89,9 @@ export function ProvinceMesh({ cell, owner, selected, terrainMode, onClick }: Pr
           metalness={0}
         />
       </mesh>
-      {outline.length > 1 && <Line points={[...outline, outline[0]]} color={isSea ? '#5a7268' : '#4a3a22'} lineWidth={1} />}
+      {outline.length > 1 && !isSea && (
+        <Line points={[...outline, outline[0]]} color="#6b5a3a" lineWidth={0.6} transparent opacity={0.55} />
+      )}
     </group>
   );
 }

@@ -515,22 +515,5 @@ button.link {
 }
 
 /* --------------------------------------------------------------- Map --- */
-
-.province-label {
-  font-family: var(--font-body);
-  font-size: 12px;
-  font-weight: 600;
-  color: #2a2214;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
-  pointer-events: none;
-  white-space: nowrap;
-  user-select: none;
-}
-
-.province-label.sea-label {
-  font-style: italic;
-  font-weight: 500;
-  font-size: 11px;
-  color: #1d3b33;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3);
-}
+/* Province/sea labels are now real 3D text (ProvinceLabel.tsx) rather than a DOM
+   overlay, so they can scale naturally with camera zoom - no CSS needed here. */

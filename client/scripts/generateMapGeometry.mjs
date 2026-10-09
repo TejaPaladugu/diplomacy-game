@@ -19,10 +19,15 @@ const WIDTH = 1200;
 const HEIGHT = 900;
 const BBOX = [-24, 33, 46, 73]; // lon/lat box covering the Diplomacy map's extent
 
-const land110 = JSON.parse(readFileSync(join(root, 'node_modules/world-atlas/land-110m.json'), 'utf8'));
-const landFeatureCollection = topojson.feature(land110, land110.objects.land);
+// Use the highest-resolution coastline data (1:10m). We clip to our small bounding box
+// *before* simplifying, so we keep full detail where it matters (this regional window)
+// without the output ballooning in size - unlike simplifying the whole world first, which
+// is what made the coastline look blocky despite starting from real geometry.
+const land10 = JSON.parse(readFileSync(join(root, 'node_modules/world-atlas/land-10m.json'), 'utf8'));
+const landFeatureCollection = topojson.feature(land10, land10.objects.land);
 const landGeo = landFeatureCollection.features[0]; // single MultiPolygon feature
-const worldLand = turf.simplify(landGeo, { tolerance: 0.02, highQuality: false });
+const landClippedToBbox = turf.bboxClip(landGeo, BBOX);
+const worldLand = turf.simplify(landClippedToBbox, { tolerance: 0.015, highQuality: true });
 
 const projection = geoConicEqualArea().parallels([35, 65]).rotate([-14, 0]).center([0, 52]);
 // Fit the projection to the actual spread of our province coordinates (a crude 4-corner
@@ -55,8 +60,27 @@ for (const feature of clippedLand.features ?? [clippedLand]) {
   for (const poly of polys) {
     if (!poly || poly.length === 0 || !poly[0] || poly[0].length < 4) continue;
     const ring = poly[0].map(project);
-    if (ring.length >= 4) landPixelRings.push(ring);
+    if (ring.length < 4 || ringArea(closeRing(ring)) <= 1.5) continue; // too small to register
+    if (isBboxClipArtifact(ring)) continue;
+    landPixelRings.push(ring);
   }
+}
+
+// turf.bboxClip occasionally traces a thin sliver along the clip boundary itself when a
+// complex polygon (the whole world's landmass, here) grazes the edge of our bbox near the
+// pole - a near-straight, very low-vertex-count ring spanning a wide x range but only a
+// handful of pixels tall. Real simplified coastline fragments at this scale don't look
+// like that, so treat the combination as a clipping artifact rather than real land.
+function isBboxClipArtifact(ring) {
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const [x, y] of ring) {
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+  }
+  const w = maxX - minX, h = maxY - minY;
+  return ring.length <= 8 && w > 150 && h > 0 && w / h > 8;
 }
 
 // Build a turf MultiPolygon of the (pixel-space) landmass for clipping provinces.
@@ -99,27 +123,48 @@ for (let i = 0; i < ids.length; i++) {
   const id = ids[i];
   const cellPts = voronoi.cellPolygon(i);
   if (!cellPts) {
-    provinces[id] = { x: points[i][0], y: points[i][1], polygon: [] };
+    provinces[id] = { x: points[i][0], y: points[i][1], polygon: [], radius: 0 };
     continue;
   }
   const cellRing = closeRing(cellPts);
-  let resultRings = [cellRing];
+  // Constrain the raw Voronoi cell to the canvas *before* clipping against the coastline -
+  // cells near the map's edge (e.g. the Norwegian Sea, with no neighboring seed to its
+  // north) otherwise balloon into huge slivers across the padded off-canvas margin, and
+  // "difference against land" leaves most of that sliver intact since there's little land
+  // way up there to subtract.
+  const onCanvasFallback = clipRingToCanvas(cellRing) ?? cellRing;
+  let resultRings = [onCanvasFallback];
   try {
-    const cellPoly = turf.polygon([cellRing]);
+    // Reducing coordinate precision first avoids the floating-point edge cases that
+    // otherwise make turf's boolean ops throw on the now much more detailed coastline.
+    const cellPoly = turf.truncate(turf.polygon([onCanvasFallback]), { precision: 6, mutate: false });
+    const land = turf.truncate(landUnion, { precision: 6, mutate: false });
     if (SEA_IDS.has(id)) {
-      const diff = turf.difference(turf.featureCollection([cellPoly, landUnion]));
-      resultRings = ringsFromFeature(diff) ?? [cellRing];
+      const diff = turf.difference(turf.featureCollection([cellPoly, land]));
+      resultRings = ringsFromFeature(diff) ?? [onCanvasFallback];
     } else {
-      const inter = turf.intersect(turf.featureCollection([cellPoly, landUnion]));
-      resultRings = ringsFromFeature(inter) ?? [cellRing];
+      const inter = turf.intersect(turf.featureCollection([cellPoly, land]));
+      resultRings = ringsFromFeature(inter) ?? [onCanvasFallback];
     }
   } catch (e) {
     console.error(`clip failed for ${id}: ${e.message}`);
-    resultRings = [cellRing];
+    resultRings = [onCanvasFallback];
   }
   // Keep the largest ring (clipping can produce slivers for coastal cells).
   const biggest = resultRings.reduce((a, b) => (ringArea(b) > ringArea(a) ? b : a), resultRings[0]);
-  provinces[id] = { x: points[i][0], y: points[i][1], polygon: biggest.slice(0, -1) };
+  // Approximate on-screen "size" of this province, used client-side to fade in its label
+  // only once zoomed in enough that it has room (small provinces stay hidden until then).
+  const radius = Math.sqrt(ringArea(biggest) / Math.PI);
+  provinces[id] = { x: points[i][0], y: points[i][1], polygon: biggest.slice(0, -1), radius };
+}
+
+function clipRingToCanvas(ring) {
+  try {
+    const clipped = turf.bboxClip(turf.polygon([ring]), [0, 0, WIDTH, HEIGHT]);
+    return ringsFromFeature(clipped)?.[0] ? closeRing(ringsFromFeature(clipped)[0]) : null;
+  } catch {
+    return null;
+  }
 }
 
 function ringsFromFeature(feature) {

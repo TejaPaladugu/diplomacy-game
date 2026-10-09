@@ -1,16 +1,16 @@
 import { useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { ProvinceMesh } from './ProvinceMesh';
 import { WorldBackdrop } from './WorldBackdrop';
 import { UnitToken } from './UnitToken';
 import { SupplyCenterMarker } from './SupplyCenterMarker';
 import { OrderArrow } from './OrderArrow';
+import { ProvinceLabel } from './ProvinceLabel';
 import { CameraRig } from './CameraRig';
 import { useGameStore } from '../store/gameStore';
-import { provinceHeight, toWorld } from '../map/terrain';
-import { geoXY } from '../map/voronoi';
+import { provinceHeight, toWorld, SCALE } from '../map/terrain';
+import { geoXY, geoRadius } from '../map/voronoi';
 import type { Unit } from '../types/domain';
 import type { AnimatedUnitFrame } from '../hooks/useTurnPlayback';
 
@@ -92,9 +92,12 @@ export function MapScene({ displayUnits, animatedUnits, arrows = [], interactive
           const [x, z] = toWorld(gx, gy);
           const h = provinceHeight(c.province.id, c.province.type, terrainMode);
           return (
-            <Html key={`label-${c.province.id}`} position={[x, h + 0.05, z]} center occlude={false} zIndexRange={[1, 0]} pointerEvents="none">
-              <div className="province-label">{c.province.name}</div>
-            </Html>
+            <ProvinceLabel
+              key={`label-${c.province.id}`}
+              position={[x, h + 0.35, z]}
+              text={c.province.name}
+              radius={geoRadius(c.province.id) * SCALE}
+            />
           );
         })}
 
@@ -104,9 +107,13 @@ export function MapScene({ displayUnits, animatedUnits, arrows = [], interactive
           const [gx, gy] = geoXY(c.province.id, [c.province.x, c.province.y]);
           const [x, z] = toWorld(gx, gy);
           return (
-            <Html key={`sea-label-${c.province.id}`} position={[x, 0.18, z]} center occlude={false} zIndexRange={[1, 0]} pointerEvents="none">
-              <div className="province-label sea-label">{c.province.name}</div>
-            </Html>
+            <ProvinceLabel
+              key={`sea-label-${c.province.id}`}
+              position={[x, 0.45, z]}
+              text={c.province.name}
+              radius={geoRadius(c.province.id) * SCALE}
+              sea
+            />
           );
         })}
 

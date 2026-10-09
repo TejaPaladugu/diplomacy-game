@@ -14,7 +14,7 @@ type GeometryData = {
   width: number;
   height: number;
   worldLand: [number, number][][];
-  provinces: Record<string, { x: number; y: number; polygon: [number, number][] }>;
+  provinces: Record<string, { x: number; y: number; polygon: [number, number][]; radius: number }>;
 };
 
 const geo = geometry as unknown as GeometryData;
@@ -41,6 +41,12 @@ export function buildMapCells(provinces: Province[]): MapCell[] {
 export function geoXY(id: string, fallback: [number, number]): [number, number] {
   const g = geo.provinces[id];
   return g ? [g.x, g.y] : fallback;
+}
+
+/** Approximate on-screen "size" (pixel-space radius) of a province's cell, used to fade
+ * in its label only once zoomed in enough that it has room to be legible. */
+export function geoRadius(id: string): number {
+  return geo.provinces[id]?.radius ?? 0;
 }
 
 export function polygonToPath(polygon: [number, number][]): string {
